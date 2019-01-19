@@ -13,10 +13,8 @@ local Entity = require 'stdlib/entity/entity'
 Trains = {} --luacheck: allow defined top
 
 --- This event fires when a train's ID changes.
--- <p>The train ID is a property of the main locomotive,
--- which means that when locomotives are attached or detached from their wagons or from other locomotives, the ID of the train changes.
--- <p>For example: A train with a front and rear locomotives will get its ID
--- from the front locomotive. If the front locomotive gets disconnected, the rear locomotive becomes the main one and the train's ID changes.
+-- <p>The train ID is a property of the front rolling stock,
+-- which means that when rolling stock are attached or detached, the ID of the train may change.
 -- @event on_train_id_changed
 -- @tparam uint old_id the ID of the train before the change
 -- @tparam uint new_id the ID of the train after the change
@@ -42,8 +40,15 @@ function Trains.find_filtered(criteria)
 
     local results = {}
 
+
+
     for _, surface in pairs(surface_list) do
-        local trains = surface.get_trains(criteria.force)
+        local trains
+        if criteria.force then
+            trains = surface.get_trains(criteria.force)
+        else
+            trains = surface.get_trains()
+        end
         for _, train in pairs(trains) do
             table.insert(results, train)
         end
@@ -58,7 +63,7 @@ function Trains.find_filtered(criteria)
 
     -- Lastly, look up the train ids
     results = table.map(results, function(train)
-        return { train = train, id = Trains.get_main_locomotive(train).unit_number }
+        return { train = train, id = Trains.get_train_id(train) }
     end)
 
     return results
@@ -81,13 +86,12 @@ end
 -- @tparam LuaTrain train
 -- @treturn uint the ID of the train
 function Trains.get_train_id(train)
-    local loco = Trains.get_main_locomotive(train)
-    return loco and loco.unit_number
+    return train.front_stock.unit_number
 end
 
---- Event fired when some change happens to a locomotive.
+--- Event fired when some change happens to a rolling stock.
 -- @lfunction
-function Trains._on_locomotive_changed()
+function Trains._on_stock_changed()
     -- For all the known trains
     local renames = {}
     for id, train in pairs(global._train_registry) do
@@ -116,15 +120,6 @@ function Trains._on_locomotive_changed()
     end
 end
 
-
---- Get the main locomotive of a train.
--- @tparam LuaTrain train
--- @treturn LuaEntity the main locomotive
-function Trains.get_main_locomotive(train)
-    if train and train.valid and train.locomotives and (#train.locomotives.front_movers > 0 or #train.locomotives.back_movers > 0) then
-        return train.locomotives.front_movers and train.locomotives.front_movers[1] or train.locomotives.back_movers[1]
-    end
-end
 
 --- Creates an entity from a train that is compatible with the @{Entity} module.
 -- @tparam LuaTrain train
@@ -183,13 +178,18 @@ end
 
 -- When developers load this module, we need to attach some new events.
 
---- Filters events related to entity_type.
+--- Filters events related to rolling stock.
 -- @tparam string event_parameter The event parameter to look inside to find the entity type
--- @tparam string entity_type The entity type to filter events for
 -- @tparam callable callback The callback to invoke if the filter passes. The object defined in the event parameter is passed
-local function filter_event(event_parameter, entity_type, callback)
+local wagon_entity_types = {
+    "artillery-wagon",
+    "cargo-wagon",
+    "fluid-wagon",
+    "locomotive"
+}
+local function filter_stock_event(event_parameter, callback)
     return function(evt)
-        if(evt[event_parameter].type == entity_type) then
+        if(wagon_entity_types[evt[event_parameter].type]) then
             callback(evt[event_parameter])
         end
     end
@@ -197,7 +197,7 @@ end
 
 -- When a locomotive is removed ...
 local train_remove_events = {defines.events.on_entity_died, defines.events.on_preplayer_mined_item, defines.events.on_robot_pre_mined}
-Event.register(train_remove_events, filter_event('entity', 'locomotive', Trains._on_locomotive_changed))
+Event.register(train_remove_events, filter_stock_event('entity', Trains._on_stock_changed))
 
 -- When a locomotive is added ...
 local function on_train_created(event)
