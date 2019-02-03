@@ -417,6 +417,40 @@ function Area.spiral_iterate(area)
     return iterator.iterate, area, 0
 end
 
+--- Starts a new bounding box. This area is invalid at first, but will be valid after expand_bounding_box is called once.
+-- @treturn Concepts.BoundingBox A bounding box that can be added to with expand_bounding_box
+function Area.start_bounding_box()
+    return Area.construct(math.huge, math.huge, -math.huge, -math.huge)
+end
+
+--- Expand the bounding box so that it contains the given position.
+-- @tparam Concepts.BoundingBox bounding_box The bounding box to expand
+-- @tparam Concepts.Position pos the position that must be contained by the bounding box
+-- @treturn Concepts.BoundingBox The expanded bounding box
+function Area.add_pos_to_bounding_box(bounding_box, pos)
+    bounding_box = Area.new(bounding_box)
+    pos = Position.new(pos)
+    bounding_box.left_top.x = math.min(bounding_box.left_top.x, pos.x)
+    bounding_box.left_top.y = math.min(bounding_box.left_top.y, pos.y)
+    bounding_box.right_bottom.x = math.max(bounding_box.right_bottom.x, pos.x)
+    bounding_box.right_bottom.y = math.max(bounding_box.right_bottom.y, pos.y)
+    return bounding_box
+end
+
+--- Expand the bounding box so that it contains the given area.
+-- @tparam Concepts.BoundingBox bounding_box The bounding box to expand
+-- @tparam Concepts.BoundingBox area the area that must be contained by the bounding box
+-- @treturn Concepts.BoundingBox The expanded bounding box
+function Area.add_area_to_bounding_box(bounding_box, area)
+    bounding_box = Area.new(bounding_box)
+    area = Area.new(area)
+    bounding_box.left_top.x = math.min(bounding_box.left_top.x, area.left_top.x)
+    bounding_box.left_top.y = math.min(bounding_box.left_top.y, area.left_top.y)
+    bounding_box.right_bottom.x = math.max(bounding_box.right_bottom.x, area.right_bottom.x)
+    bounding_box.right_bottom.y = math.max(bounding_box.right_bottom.y, area.right_bottom.y)
+    return bounding_box
+end
+
 -------------------------------------------------------------------------------
 --[[Entity Helpers]]--
 -------------------------------------------------------------------------------
