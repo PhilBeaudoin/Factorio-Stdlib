@@ -35,7 +35,7 @@ function Gui.register(event_id, gui_element_pattern, handler)
     end
     Event._registry[event_id][gui_element_pattern] = handler
 
-    return Gui
+    return function() Gui.remove(event_id, gui_element_pattern) end
 end
 
 --- Calls the registered handlers.
