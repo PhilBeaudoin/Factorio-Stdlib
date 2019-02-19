@@ -22,7 +22,8 @@ function Gui.register(event_id, gui_element_pattern, handler)
     end
 
     if handler == nil then
-        return Gui.remove(event_id, gui_element_pattern)
+        Gui.remove(event_id, gui_element_pattern)
+        return function() end
     end
 
     if not Event._registry[event_id] then
